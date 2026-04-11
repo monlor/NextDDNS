@@ -13,7 +13,7 @@ import (
 
 func main() {
 	var configPath string
-	flag.StringVar(&configPath, "config", "configs/config.example.yaml", "path to YAML config")
+	flag.StringVar(&configPath, "config", "/app/config.yaml", "path to YAML config")
 	flag.Parse()
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{}))
