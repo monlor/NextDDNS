@@ -1,5 +1,5 @@
 # Binary
-nextddns
+/nextddns
 
 # Local config with secrets
 configs/config.local.yaml
