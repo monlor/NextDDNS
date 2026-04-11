@@ -88,12 +88,38 @@ func (s *ZTEStarSource) Resolve(ctx context.Context) (ResolvedIPs, error) {
 	var loginResp struct {
 		NeedRefresh bool   `json:"login_need_refresh"`
 		ErrType     string `json:"loginErrType"`
+		SessToken   string `json:"sess_token"`
 	}
 	if err := json.Unmarshal(body, &loginResp); err != nil {
 		return ResolvedIPs{}, fmt.Errorf("decode login response: %w", err)
 	}
 	if !loginResp.NeedRefresh {
 		return ResolvedIPs{}, fmt.Errorf("login failed: %s", loginResp.ErrType)
+	}
+
+	// Step 3b: If another device is logged in, preempt the session
+	if loginResp.ErrType == "e_exceed_max_user_preempt" {
+		xsrfToken := resp.Header.Get("X_XSRF_TOKEN")
+		preemptURL := strings.TrimRight(s.cfg.BaseURL, "/") + "/?_type=loginData&_tag=login_preempt"
+		preemptForm := url.Values{
+			"preempt_sessid": {loginResp.SessToken},
+			"action":         {"preempt"},
+			"_sessionTOKEN":  {xsrfToken},
+		}
+		req, err = http.NewRequestWithContext(ctx, http.MethodPost, preemptURL, strings.NewReader(preemptForm.Encode()))
+		if err != nil {
+			return ResolvedIPs{}, fmt.Errorf("build preempt request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		resp, err = s.cfg.Client.Do(req)
+		if err != nil {
+			return ResolvedIPs{}, fmt.Errorf("preempt login: %w", err)
+		}
+		body, err = io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if err != nil {
+			return ResolvedIPs{}, fmt.Errorf("read preempt response: %w", err)
+		}
 	}
 
 	// Step 4: Get device list
