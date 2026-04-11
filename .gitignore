@@ -1,0 +1,12 @@
+# Binary
+nextddns
+
+# Local config with secrets
+configs/config.local.yaml
+
+# Go build cache
+*.test
+*.out
+
+# OS
+.DS_Store

@@ -1,0 +1,100 @@
+server:
+  listen: ":8080"
+
+defaults:
+  interval: 5m
+  timeout: 10s
+  log_format: text
+
+tasks:
+  - name: zte-star-device-dualstack
+    interval: 3m
+    source:
+      type: zte_star
+      zte_star:
+        base_url: http://zte.home
+        password: ${ZTE_PASSWORD}
+        device_mac: AA:BB:CC:DD:EE:FF
+    providers:
+      - type: dnspod
+        dnspod:
+          secret_id: ${TENCENT_SECRET_ID}
+          secret_key: ${TENCENT_SECRET_KEY}
+        records:
+          - zone: example.cn
+            name: mypc       # 同时同步 A 和 AAAA（默认都开启）
+            ttl: 600
+          - zone: example.cn
+            name: mypc-v4   # 只同步 IPv4
+            ttl: 600
+            ipv4: true
+            ipv6: false
+          - zone: example.cn
+            name: mypc-v6   # 只同步 IPv6
+            ttl: 600
+            ipv4: false
+            ipv6: true
+      - type: cloudflare
+        cloudflare:
+          api_token: ${CF_API_TOKEN}
+        records:
+          - zone: example.com
+            name: mypc
+            ttl: 300
+            proxied: false
+
+  - name: wan-public-ipv4
+    interval: 2m
+    source:
+      type: public
+      public:
+        ipv4_urls:
+          - https://ipv4.icanhazip.com
+    providers:
+      - type: cloudflare
+        cloudflare:
+          api_token: ${CF_API_TOKEN}
+        records:
+          - zone: example.com
+            name: home
+            ttl: 300
+            proxied: false
+            ipv4: true
+            ipv6: false
+
+  - name: host-ipv6-from-interface
+    source:
+      type: interface
+      interface:
+        name: eth0
+        allow_link_local: false
+        allow_loopback: false
+    providers:
+      - type: dnspod
+        dnspod:
+          secret_id: ${TENCENT_SECRET_ID}
+          secret_key: ${TENCENT_SECRET_KEY}
+        records:
+          - zone: example.com
+            name: server
+            ttl: 600
+            ipv4: false
+            ipv6: true
+
+  - name: sync-from-existing-dns
+    interval: 5m
+    source:
+      type: dns
+      dns:
+        hostname: myhost.example.com
+        resolver:
+          - 8.8.8.8
+    providers:
+      - type: dnspod
+        dnspod:
+          secret_id: ${TENCENT_SECRET_ID}
+          secret_key: ${TENCENT_SECRET_KEY}
+        records:
+          - zone: example.com
+            name: myhost-copy
+            ttl: 600
