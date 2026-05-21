@@ -27,9 +27,9 @@ type ServerConfig struct {
 }
 
 type DefaultsConfig struct {
-	Interval Duration `yaml:"interval"`
-	Timeout  Duration `yaml:"timeout"`
-	LogFormat string  `yaml:"log_format"`
+	Interval  Duration `yaml:"interval"`
+	Timeout   Duration `yaml:"timeout"`
+	LogFormat string   `yaml:"log_format"`
 }
 
 type TaskConfig struct {
@@ -40,19 +40,18 @@ type TaskConfig struct {
 }
 
 type SourceConfig struct {
-	Type      string               `yaml:"type"`
+	Type      string                `yaml:"type"`
 	Interface InterfaceSourceConfig `yaml:"interface"`
 	Public    PublicSourceConfig    `yaml:"public"`
 	DNS       DNSSourceConfig       `yaml:"dns"`
-	ZTERouter ZTERouterSourceConfig `yaml:"zte_router"`
-	ZTEStar   ZTEStarSourceConfig   `yaml:"zte_star"`
+	Router    RouterSourceConfig    `yaml:"router"`
 }
 
 type InterfaceSourceConfig struct {
-	Name             string `yaml:"name"`
-	AllowLinkLocal   bool   `yaml:"allow_link_local"`
-	AllowLoopback    bool   `yaml:"allow_loopback"`
-	PreferTemporary  bool   `yaml:"prefer_temporary"`
+	Name            string `yaml:"name"`
+	AllowLinkLocal  bool   `yaml:"allow_link_local"`
+	AllowLoopback   bool   `yaml:"allow_loopback"`
+	PreferTemporary bool   `yaml:"prefer_temporary"`
 }
 
 type PublicSourceConfig struct {
@@ -65,39 +64,21 @@ type DNSSourceConfig struct {
 	Resolver []string `yaml:"resolver"`
 }
 
-type ZTERouterSourceConfig struct {
-	BaseURL      string            `yaml:"base_url"`
-	Username     string            `yaml:"username"`
-	Password     string            `yaml:"password"`
-	LoginPath    string            `yaml:"login_path"`
-	LoginMethod  string            `yaml:"login_method"`
-	LoginBody    string            `yaml:"login_body"`
-	LoginHeaders map[string]string `yaml:"login_headers"`
-	TokenPath    string            `yaml:"token_path"`
-	AuthHeader   string            `yaml:"auth_header"`
-	AuthScheme   string            `yaml:"auth_scheme"`
-	DevicesPath  string            `yaml:"devices_path"`
-	DevicesMethod string           `yaml:"devices_method"`
-	DevicesBody  string            `yaml:"devices_body"`
-	DevicesHeaders map[string]string `yaml:"devices_headers"`
-	DeviceListPath string          `yaml:"device_list_path"`
-	DeviceMAC    string            `yaml:"device_mac"`
-	DeviceMACField string          `yaml:"device_mac_field"`
-	IPv4Field    string            `yaml:"ipv4_field"`
-	IPv6Field    string            `yaml:"ipv6_field"`
-}
-
-type ZTEStarSourceConfig struct {
-	BaseURL   string `yaml:"base_url"`
-	Password  string `yaml:"password"`
-	DeviceMAC string `yaml:"device_mac"`
+type RouterSourceConfig struct {
+	Family      string   `yaml:"family"`
+	Mode        string   `yaml:"mode"`
+	BaseURL     string   `yaml:"base_url"`
+	Username    string   `yaml:"username"`
+	Password    string   `yaml:"password"`
+	DeviceMAC   string   `yaml:"device_mac"`
+	DeviceTypes []string `yaml:"device_types"`
 }
 
 type ProviderConfig struct {
-	Type       string                  `yaml:"type"`
+	Type       string                   `yaml:"type"`
 	Cloudflare CloudflareProviderConfig `yaml:"cloudflare"`
 	DNSPod     DNSPodProviderConfig     `yaml:"dnspod"`
-	Records    []RecordConfig          `yaml:"records"`
+	Records    []RecordConfig           `yaml:"records"`
 }
 
 type CloudflareProviderConfig struct {
@@ -238,18 +219,28 @@ func validateSource(prefix string, src SourceConfig) error {
 		if strings.TrimSpace(src.DNS.Hostname) == "" {
 			return fmt.Errorf("%s.source.dns.hostname is required", prefix)
 		}
-	case "zte_router":
-		zte := src.ZTERouter
-		if zte.BaseURL == "" || zte.DevicesPath == "" || zte.DeviceMAC == "" {
-			return fmt.Errorf("%s.source.zte_router requires base_url, devices_path, device_mac", prefix)
+	case "router":
+		router := src.Router
+		if router.Mode == "" {
+			router.Mode = "device"
 		}
-		if zte.DeviceListPath == "" {
-			return fmt.Errorf("%s.source.zte_router.device_list_path is required", prefix)
+		if router.Mode != "device" && router.Mode != "wan" {
+			return fmt.Errorf("%s.source.router.mode must be device or wan", prefix)
 		}
-	case "zte_star":
-		zs := src.ZTEStar
-		if zs.BaseURL == "" || zs.Password == "" || zs.DeviceMAC == "" {
-			return fmt.Errorf("%s.source.zte_star requires base_url, password, device_mac", prefix)
+		switch router.Family {
+		case "hg2201t":
+		case "zte_star":
+			if router.Mode == "wan" {
+				return fmt.Errorf("%s.source.router family zte_star does not support wan mode", prefix)
+			}
+		default:
+			return fmt.Errorf("%s.source.router.family %q is unsupported", prefix, router.Family)
+		}
+		if router.BaseURL == "" || router.Password == "" {
+			return fmt.Errorf("%s.source.router requires base_url and password", prefix)
+		}
+		if router.Mode == "device" && router.DeviceMAC == "" {
+			return fmt.Errorf("%s.source.router.device_mac is required in device mode", prefix)
 		}
 	default:
 		return fmt.Errorf("%s.source.type %q is unsupported", prefix, src.Type)

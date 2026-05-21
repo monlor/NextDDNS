@@ -169,55 +169,30 @@ func buildSource(cfg config.SourceConfig, client *http.Client) (source.Source, e
 			Hostname: cfg.DNS.Hostname,
 			Resolver: cfg.DNS.Resolver,
 		}), nil
-	case "zte_router":
-		return buildZTESource(cfg.ZTERouter, client)
-	case "zte_star":
-		jar, err := cookiejar.New(nil)
-		if err != nil {
-			return nil, err
-		}
-		copied := *client
-		copied.Jar = jar
-		return source.NewZTEStar(source.ZTEStarConfig{
-			BaseURL:   cfg.ZTEStar.BaseURL,
-			Password:  cfg.ZTEStar.Password,
-			DeviceMAC: cfg.ZTEStar.DeviceMAC,
-			Client:    &copied,
-		}), nil
+	case "router":
+		return buildRouterSource(cfg.Router, client)
 	default:
 		return nil, fmt.Errorf("unsupported source type %q", cfg.Type)
 	}
 }
 
-func buildZTESource(cfg config.ZTERouterSourceConfig, client *http.Client) (source.Source, error) {
+func buildRouterSource(cfg config.RouterSourceConfig, client *http.Client) (source.Source, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, err
 	}
 	copied := *client
 	copied.Jar = jar
-	return source.NewZTERouter(source.ZTEConfig{
-		BaseURL:        cfg.BaseURL,
-		Username:       cfg.Username,
-		Password:       cfg.Password,
-		LoginPath:      cfg.LoginPath,
-		LoginMethod:    cfg.LoginMethod,
-		LoginBody:      cfg.LoginBody,
-		LoginHeaders:   cfg.LoginHeaders,
-		TokenPath:      cfg.TokenPath,
-		AuthHeader:     cfg.AuthHeader,
-		AuthScheme:     cfg.AuthScheme,
-		DevicesPath:    cfg.DevicesPath,
-		DevicesMethod:  cfg.DevicesMethod,
-		DevicesBody:    cfg.DevicesBody,
-		DevicesHeaders: cfg.DevicesHeaders,
-		DeviceListPath: cfg.DeviceListPath,
-		DeviceMAC:      cfg.DeviceMAC,
-		DeviceMACField: cfg.DeviceMACField,
-		IPv4Field:      cfg.IPv4Field,
-		IPv6Field:      cfg.IPv6Field,
-		Client:         &copied,
-	}), nil
+	return source.NewRouter(source.RouterConfig{
+		Family:      cfg.Family,
+		Mode:        cfg.Mode,
+		BaseURL:     cfg.BaseURL,
+		Username:    cfg.Username,
+		Password:    cfg.Password,
+		DeviceMAC:   cfg.DeviceMAC,
+		DeviceTypes: cfg.DeviceTypes,
+		Client:      &copied,
+	})
 }
 
 func buildProvider(cfg config.ProviderConfig) (provider.Provider, error) {

@@ -7,13 +7,57 @@ defaults:
   log_format: text
 
 tasks:
+  - name: hg2201t-device-dualstack
+    interval: 3m
+    source:
+      type: router
+      router:
+        family: hg2201t
+        base_url: http://192.168.1.1
+        username: useradmin
+        password: ${HG2201T_PASSWORD}
+        mode: device
+        device_mac: AA:BB:CC:DD:EE:FF
+        device_types: ["0", "1"]
+    providers:
+      - type: cloudflare
+        cloudflare:
+          api_token: ${CF_API_TOKEN}
+        records:
+          - zone: example.com
+            name: home
+            ttl: 300
+            proxied: false
+
+  - name: hg2201t-wan-dualstack
+    interval: 3m
+    source:
+      type: router
+      router:
+        family: hg2201t
+        base_url: http://192.168.1.1
+        username: useradmin
+        password: ${HG2201T_PASSWORD}
+        mode: wan
+    providers:
+      - type: cloudflare
+        cloudflare:
+          api_token: ${CF_API_TOKEN}
+        records:
+          - zone: example.com
+            name: wan
+            ttl: 300
+            proxied: false
+
   - name: zte-star-device-dualstack
     interval: 3m
     source:
-      type: zte_star
-      zte_star:
+      type: router
+      router:
+        family: zte_star
         base_url: http://zte.home
         password: ${ZTE_PASSWORD}
+        mode: device
         device_mac: AA:BB:CC:DD:EE:FF
     providers:
       - type: dnspod

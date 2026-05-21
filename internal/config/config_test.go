@@ -66,3 +66,60 @@ func TestValidateRequiresRecords(t *testing.T) {
 		t.Fatal("expected validation error when records is empty")
 	}
 }
+
+func TestValidateRouterDeviceRequiresFields(t *testing.T) {
+	cfg := &Config{
+		Defaults: DefaultsConfig{Interval: Duration{Duration: defaultInterval}, Timeout: Duration{Duration: defaultTimeout}},
+		Tasks: []TaskConfig{{
+			Name:     "router",
+			Interval: Duration{Duration: time.Minute},
+			Source:   SourceConfig{Type: "router", Router: RouterSourceConfig{Family: "hg2201t", BaseURL: "http://192.168.1.1", Mode: "device", Password: "x"}},
+			Providers: []ProviderConfig{{
+				Type:       "cloudflare",
+				Cloudflare: CloudflareProviderConfig{APIToken: "x"},
+				Records:    []RecordConfig{{Zone: "example.com", Name: "home"}},
+			}},
+		}},
+	}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected validation error when router.device_mac is missing in device mode")
+	}
+}
+
+func TestValidateRouterWANDoesNotRequireDeviceMAC(t *testing.T) {
+	cfg := &Config{
+		Defaults: DefaultsConfig{Interval: Duration{Duration: defaultInterval}, Timeout: Duration{Duration: defaultTimeout}},
+		Tasks: []TaskConfig{{
+			Name:     "router",
+			Interval: Duration{Duration: time.Minute},
+			Source:   SourceConfig{Type: "router", Router: RouterSourceConfig{Family: "hg2201t", BaseURL: "http://192.168.1.1", Mode: "wan", Password: "x"}},
+			Providers: []ProviderConfig{{
+				Type:       "cloudflare",
+				Cloudflare: CloudflareProviderConfig{APIToken: "x"},
+				Records:    []RecordConfig{{Zone: "example.com", Name: "home"}},
+			}},
+		}},
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("expected wan mode to validate, got %v", err)
+	}
+}
+
+func TestValidateRouterRejectsUnsupportedFamilyModeCombo(t *testing.T) {
+	cfg := &Config{
+		Defaults: DefaultsConfig{Interval: Duration{Duration: defaultInterval}, Timeout: Duration{Duration: defaultTimeout}},
+		Tasks: []TaskConfig{{
+			Name:     "router",
+			Interval: Duration{Duration: time.Minute},
+			Source:   SourceConfig{Type: "router", Router: RouterSourceConfig{Family: "zte_star", BaseURL: "http://zte.home", Mode: "wan", Password: "x"}},
+			Providers: []ProviderConfig{{
+				Type:       "cloudflare",
+				Cloudflare: CloudflareProviderConfig{APIToken: "x"},
+				Records:    []RecordConfig{{Zone: "example.com", Name: "home"}},
+			}},
+		}},
+	}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected validation error for zte_star wan mode")
+	}
+}

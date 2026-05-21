@@ -13,7 +13,7 @@ A Docker-friendly dynamic DNS sync service. Periodically resolves IPs from confi
   - `public` — probe public IP via HTTP (ipv4/ipv6)
   - `interface` — read from a local network interface
   - `dns` — resolve from an existing DNS hostname
-  - `zte_star` — read device IPs from ZTE 星云 router (ZXSLC SR1010)
+  - `router` — read router WAN/device IPs through family-specific drivers
 - DNS providers:
   - Cloudflare
   - Tencent Cloud DNSPod
@@ -66,7 +66,7 @@ tasks:
   - name: my-task
     interval: 3m
     source:
-      type: public          # public | interface | dns | zte_star
+      type: public          # public | interface | dns | router
       ...
     providers:
       - type: cloudflare    # cloudflare | dnspod
@@ -89,7 +89,41 @@ See [`configs/config.example.yaml`](configs/config.example.yaml) for a full exam
 | `public` | Probe public IP via configurable HTTP URLs |
 | `interface` | Read from a named local network interface |
 | `dns` | Resolve from an existing DNS hostname |
-| `zte_star` | Read device table from ZTE 星云 router by MAC address |
+| `router` | Read router WAN/device IPs via `family` (`hg2201t`, `zte_star`) |
+
+### Router source
+
+Use `source.type: router` for router-backed IP discovery.
+
+```yaml
+source:
+  type: router
+  router:
+    family: hg2201t
+    mode: wan
+    base_url: http://192.168.1.1
+    username: useradmin
+    password: ${ROUTER_PASSWORD}
+```
+
+#### Router fields
+
+| Field | Required | Description |
+|------|----------|-------------|
+| `family` | yes | Router driver family, currently `hg2201t` or `zte_star` |
+| `mode` | no | `device` or `wan`, defaults to `device` |
+| `base_url` | yes | Router admin base URL |
+| `username` | no | Login username; currently only used by `hg2201t`, defaults to `useradmin` |
+| `password` | yes | Router admin password |
+| `device_mac` | device mode only | Target client MAC address when resolving a device IP |
+| `device_types` | no | HG2201T device list categories to query in device mode, defaults to `["0", "1"]` |
+
+#### Family support
+
+| Family | `device` mode | `wan` mode | Notes |
+|--------|---------------|------------|-------|
+| `hg2201t` | yes | yes | `device` reads `/cgi-bin/luci/admin/device/devInfo`; `wan` reads `/cgi-bin/luci/admin/settings/gwinfo?get=part` |
+| `zte_star` | yes | no | Reads local device table by MAC address |
 
 ### DNS Providers
 
