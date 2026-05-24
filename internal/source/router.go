@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
+	"sync"
 )
 
 type RouterConfig struct {
@@ -25,8 +27,11 @@ type RouterDriver interface {
 type RouterSource struct {
 	mode      string
 	deviceMAC string
+	serialKey string
 	driver    RouterDriver
 }
+
+var routerResolveSerializers sync.Map
 
 func NewRouter(cfg RouterConfig) (*RouterSource, error) {
 	if cfg.Mode == "" {
@@ -55,15 +60,26 @@ func NewRouter(cfg RouterConfig) (*RouterSource, error) {
 	return &RouterSource{
 		mode:      cfg.Mode,
 		deviceMAC: cfg.DeviceMAC,
+		serialKey: routerSerialKey(cfg),
 		driver:    driver,
 	}, nil
 }
 
 func (s *RouterSource) Resolve(ctx context.Context) (ResolvedIPs, error) {
-	if s.mode == "wan" {
-		return s.driver.ResolveWAN(ctx)
+	run := func() (ResolvedIPs, error) {
+		if s.mode == "wan" {
+			return s.driver.ResolveWAN(ctx)
+		}
+		return s.driver.ResolveDevice(ctx, s.deviceMAC)
 	}
-	return s.driver.ResolveDevice(ctx, s.deviceMAC)
+	if s.serialKey == "" {
+		return run()
+	}
+	mu, _ := routerResolveSerializers.LoadOrStore(s.serialKey, &sync.Mutex{})
+	locker := mu.(*sync.Mutex)
+	locker.Lock()
+	defer locker.Unlock()
+	return run()
 }
 
 type hg2201tDriver struct {
@@ -108,4 +124,13 @@ func (d *zteStarDriver) ResolveDevice(ctx context.Context, mac string) (Resolved
 		DeviceMAC: mac,
 		Client:    d.cfg.Client,
 	}).Resolve(ctx)
+}
+
+func routerSerialKey(cfg RouterConfig) string {
+	family := strings.TrimSpace(strings.ToLower(cfg.Family))
+	baseURL := strings.TrimRight(strings.TrimSpace(strings.ToLower(cfg.BaseURL)), "/")
+	if family == "" || baseURL == "" {
+		return ""
+	}
+	return family + "|" + baseURL
 }
